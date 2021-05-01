@@ -1,0 +1,11 @@
+Image to Text
+---------------------------------------------------
+Installed pytesseract [pip install pytesseract]
+then I installed Google Tesseract OCR
+https://www.youtube.com/watch?v=4DrCIVS5U3Y&t=178s
+
+https://medium.com/@deepakjoseph08/spacy-based-ner-spacy-annotation-tool-classification-report-for-ner-95e0e6c760cb
+https://www.youtube.com/watch?v=yqruv_QQctI
+
+text annotation
+https://appen.com/blog/text-annotation/
