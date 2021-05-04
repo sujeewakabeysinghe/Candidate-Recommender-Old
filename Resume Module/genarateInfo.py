@@ -4,7 +4,7 @@ from pdfToText import pdf_to_text_convert
 
 
 image_dir = './Images/'
-pdf_file = './CV/Sujeewa_Abeysinghe_SE.pdf'
+pdf_file = './CV/Sujeewa_Abeysinghe.pdf'
 model_path = './Model/'
 text_file = './Texts'
 
