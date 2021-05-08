@@ -1,67 +1,74 @@
-import spacy
-from spacy.util import minibatch, compounding
+import json
+import logging
+import re
 
-train = [
-    ('I suspect a fraud in my credit card account', {'entities': [(12, 17, 'ACTIVITY'), (24, 35, 'PRODUCT')]}),
-    ('Your mortgage is in delinquent status', {'entities': [(20, 30, 'ACTIVITY'), (5, 13, 'PRODUCT')]}),
-    ('Your credit card is in past due status', {'entities': [(23, 31, 'ACTIVITY'), (5, 16, 'PRODUCT')]}),
-    ('My loan account is still not approved and funded', {'entities': [(25, 37, 'ACTIVITY'), (3, 15, 'PRODUCT')]}),
-    ('How do I open a new load account', {'entities': [(9, 13, 'ACTIVITY'), (20, 32, 'PRODUCT')]}),
-    ('What are the charges on Investment account', {'entities': [(13, 20, 'ACTIVITY'), (24, 42, 'PRODUCT')]}),
-    ('Can you explain late charges on my credit card', {'entities': [(21, 28, 'ACTIVITY'), (35, 46, 'PRODUCT')]}),
-    ('I want to open a new loan account', {'entities': [(10, 14, 'ACTIVITY'), (21, 33, 'PRODUCT')]}),
-    ('Can you help updating payment on my credit card', {'entities': [(22, 29, 'ACTIVITY'), (36, 47, 'PRODUCT')]}),
-    ('When is the payment due on my card', {'entities': [(12, 19, 'ACTIVITY'), (35, 39, 'PRODUCT')]})
-]
 
-def convert_datatrucks():
+def convert_data_to_spacy(data_path):
     try:
-        lines=[]
+        train_data = []
+        fr = open(data_path, 'r', encoding='utf-8')
+        lines = fr.read()
+        # print(lines)
+        lines = json.loads(lines)  # to catch json data by its name
+        # print(lines['object'])
+
+        for line in lines['object']:
+            data = line
+            # print(data)
+            text = data['content']  # take content as text
+            # print(text)
+            entities = []
+            for annotation in data['annotation']:
+                point = annotation['points'][0]
+                # print(point)
+                labels = annotation['label']  # take labels like Projects Education
+                # print(labels)
+                if not isinstance(labels, list):
+                    labels = [labels]
+                    # print(labels)
+                for label in labels:
+                    entities.append((point['start'], point['end'] + 1, label))  # append them to entities array
+            # print(entities)
+            train_data.append((text, {"entities": entities}))
+            # append all entities to train data array as spacy accept
+
+        # print(train_data)
+        return train_data
+
+    except Exception as e:
+        logging.exception("Error = " + str(e))
+        return None
 
 
+def trim_entity_spans(data: list) -> list:
 
-def train_spacy():
+    invalid_span_tokens = re.compile(r'\s')
+    cleaned_data = []
+    for text, annotations in data:
+        entities = annotations['entities']
+        # print(entities)
+        valid_entities = []
+        for start, end, label in entities:
+            valid_start = start
+            # print(valid_start)
+            valid_end = end
+            while valid_start < len(text) and invalid_span_tokens.match(
+                    text[valid_start]):
+                valid_start += 1
+            while valid_end > 1 and invalid_span_tokens.match(
+                    text[valid_end - 1]):
+                valid_end -= 1
+            valid_entities.append([valid_start, valid_end, label])
+        cleaned_data.append([text, {'entities': valid_entities}])
 
-    nlp = spacy.blank('en')  # loading blank english model
-    print(nlp.pipe_names)
-    if 'ner' not in nlp.pipe_names:
-        ner = nlp.create_pipe('ner')
-        nlp.add_pipe(ner, last=True)
-
-    print(nlp.pipe_names)
-
-    for _, annotations in train:
-        for ent in annotations.get('entities'):
-            ner.add_label(ent[2])  # here ent[2] is the third element of (6, 13, 'ACTIVITY')
-            # print(ent[0])
-            # print(ent[1])
-            # print(ent[2])
-
-    disable_pipes = [pipe for pipe in nlp.pipe_names if pipe != 'ner']
-    with nlp.disable_pipes(*disable_pipes):
-        optimizer = nlp.begin_training()
-
-        for iteration in range(10):
-            print('Iteration '+str(iteration))
-            losses = {}
-
-            batches = minibatch(train, size=compounding(4.0, 32.0, 1.001))
-            for batch in batches:
-                text, annotation = zip(*batch)
-                nlp.update(
-                    text,
-                    annotation,
-                    drop=0.2,
-                    losses=losses,
-                    sgd=optimizer
-                )
-                print('Losses', losses)
-
-    doc = nlp('I do not have money to pay my credit card account. What is the process for open a new savings account.')
-    for ent in doc.ents:
-        print(ent.text, ent.start_char, ent.end_char, ent.label_)
-
-    nlp.to_disk("model/")
+    return cleaned_data
 
 
-train_spacy()
+def train():
+    data_path = './Data/data.json'
+    train_data = convert_data_to_spacy(data_path)
+    train_data = trim_entity_spans(train_data)
+    # print(train_data)
+
+
+train()
